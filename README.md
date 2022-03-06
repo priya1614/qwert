@@ -14,3 +14,18 @@ fun startCountDownTimer() {
             }, {})
         )
     }
+        
+         private fun toggleSwipeTab(show: Boolean) {
+        if (isSwipeTabVisible == show)
+            return
+        if (!show) {
+            val h = resources.getDimension(R.dimen._15sdp) + binding.swipeTabView.height
+            binding.swipeTabView.animate().withLayer().translationY(h).interpolator =
+                AccelerateInterpolator(2f)
+        } else
+            binding.swipeTabView.animate().withLayer().translationY(0f).interpolator =
+                DecelerateInterpolator(2f)
+        isSwipeTabVisible = show
+    }
+        
+        
