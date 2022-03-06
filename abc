@@ -1,0 +1,134 @@
+package com.seera.lumiplus.ui.widgets
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.util.AttributeSet
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
+import com.seera.lumiplus.R
+import com.seera.lumiplus.utils.ResourceUtils
+import kotlinx.android.synthetic.main.view_swipe_tab.view.*
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+class SwipeTabView : FrameLayout {
+    private var centerX = 0
+    private var selectedTab = 1
+    private var tabSelectionListener: OnSwipeTabSelectionListener? = null
+    private var threshHold: Int = 0
+    private var xCooMovement = 0.0f
+    private var swipeDirection = Direction.LEFT
+    private var rtlEnabled = false
+
+    fun setTabSelectionListener(listener: OnSwipeTabSelectionListener) {
+        tabSelectionListener = listener
+    }
+
+    constructor(context: Context) : super(context) {
+        init()
+    }
+
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+        init()
+    }
+
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr) {
+        init()
+    }
+
+    private fun init() {
+        threshHold = ResourceUtils.getDimention(context, R.dimen._30sdp).toInt()
+        context?.let {
+            centerX = it.resources.displayMetrics.widthPixels / 2
+        }
+        removeAllViews()
+        val view = LayoutInflater.from(context).inflate(R.layout.view_swipe_tab, null)
+        val params = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
+        addView(view, params)
+        addAnimation()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    fun addAnimation() {
+        val springForce =
+            SpringForce(imgSwipeThumb.x).apply {
+                stiffness = SpringForce.STIFFNESS_MEDIUM
+                dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+            }
+        val springAnimationTranslationX =
+            SpringAnimation(imgSwipeThumb, SpringAnimation.TRANSLATION_X).setSpring(springForce)
+        var dx = 0f
+        var actionDownX = 0F
+        imgSwipeThumb?.setOnTouchListener { view, motionEvent ->
+            when (motionEvent?.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    actionDownX = motionEvent.x
+                    dx = imgSwipeThumb.x - motionEvent.rawX
+                    springAnimationTranslationX.cancel()
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    xCooMovement = motionEvent.rawX
+                    detectSwipeDirection(motionEvent.rawX)
+                    if (swipeDirection == Direction.RIGHT) {
+                        val offset =  (view.width-actionDownX)
+                        imgSwipeThumb.x = min(motionEvent.rawX, swipeTabSlider.right.toFloat() - offset) + dx
+                    } else {
+                        imgSwipeThumb.x = max(motionEvent.rawX, swipeTabSlider.left.toFloat() + actionDownX) + dx
+                    }
+                }
+                else -> {
+                    springAnimationTranslationX.start()
+                    validateTabSwitch()
+                }
+            }
+            true
+        }
+    }
+
+    private fun detectSwipeDirection(motionX: Float) {
+        swipeDirection = if (centerX < motionX) Direction.RIGHT else Direction.LEFT
+    }
+
+    private fun validateTabSwitch() {
+        if (abs(centerX - xCooMovement) >= threshHold) {
+            if (rtlEnabled) {
+                selectTab(if (swipeDirection == Direction.RIGHT) 0 else 1)
+            } else {
+                selectTab(if (swipeDirection == Direction.RIGHT) 1 else 0)
+            }
+        }
+    }
+
+    private fun selectTab(position: Int) {
+        if (selectedTab == position) return
+        if (position == 0) {
+            previousTripsTV.setTextColor(ResourceUtils.getColor(context, R.color.swipe_tab_selected_text_color))
+            upcomingTripeTV.setTextColor(ResourceUtils.getColor(context, R.color.white))
+        } else {
+            previousTripsTV.setTextColor(ResourceUtils.getColor(context, R.color.white))
+            upcomingTripeTV.setTextColor(ResourceUtils.getColor(context, R.color.swipe_tab_selected_text_color))
+        }
+        selectedTab = position
+        tabSelectionListener?.onTabSelected(position)
+    }
+
+    fun enableRTL() {
+        rtlEnabled = true
+    }
+
+    interface OnSwipeTabSelectionListener {
+        fun onTabSelected(position: Int)
+    }
+
+
+    enum class Direction {
+        LEFT,
+        RIGHT
+    }
+
+}
